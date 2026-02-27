@@ -14,6 +14,9 @@ def register_user():
     
     User.insert(name, account, password, curp)
 
+def register_tarjeta():
+    numero_tarjeta = input("Numero de tarjeta: ")
+    tipo_de_banco = input("Entidad de bancaria: ")
 
 def view_user():
     users = User.get_users()
@@ -28,6 +31,8 @@ def login():
     else:
         return False
 
+
+
 if __name__ == "__main__":
     print("Inicio de sesión ")
     if login():
@@ -36,10 +41,13 @@ if __name__ == "__main__":
         print("Seleccione una opción del menu: ")
         print("1. Registrar un usuario")
         print("2. Consultar Usuario")
+        print("3. Agregar Tarjeta a usuario")
         option = int(input())
         if option == 1:
             register_user()
         elif option == 2:
             view_user()
+        elif option == 3:
+            register_tarjeta
     else:
         print("Inicio de sesión fallido")    
