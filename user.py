@@ -10,6 +10,7 @@ class User:
         self.password = password
         self.curp = curp
 
+
     def insert(self, name, account, password, curp):
             connection = get_connection()
             cursor = connection.cursor()
@@ -79,3 +80,5 @@ class User:
                 curp=decrypt(row['password']),
                 password=decrypt(row['curp'])
             )
+
+    def get_tarjeta_by_account()
