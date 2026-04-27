@@ -1,14 +1,19 @@
 from persistence.db import get_connection
 from werkzeug.security import generate_password_hash, check_password_hash
 import pymysql
+from enums.profile import Profile
 from flask_login import UserMixin
+from entities.permission import Permissions
 
 class User (UserMixin):
-    def __init__(self, id: int, name:str, email:str, password:str):
+    def __init__(self, id: int, name:str, email:str, password:str, profile: Profile, permissions: list, is_acttive: bool):
         self.id= id
         self.name = name
         self.email = email
         self.password = password
+        self.profile = profile
+        self.permissions = permissions
+        self.is_active = is_acttive
     
     @staticmethod
     def check_email_exists(email) -> bool:
@@ -33,32 +38,31 @@ class User (UserMixin):
         return row is not None
     
     @staticmethod
-    def save(name: str, email:str, password:str) -> bool:
-        """
-            Guarda un registro de usuario en la base de datos
-
-            Parameters:
-                name (str): Nombre del usuario.
-                email (str): Correo electrónico del usuario.
-                password (str): Contraseña del usuario en texto plano.
-
-            Returns:
-                bool: True si la cuenta se guardó correctamente; de lo contrario, False.
-        """
+    def save(name: str, email: str, password: str) -> bool:
         try:
             connection = get_connection()
             cursor = connection.cursor()
             hash_password = generate_password_hash(password)
 
+            # 1. Guarda el usuario
             sql = "INSERT INTO user (name, email, password) VALUES (%s, %s, %s)"
             cursor.execute(sql, (name, email, hash_password))
-            connection.commit()
+            
+            # 2. Obtiene el id del usuario recién creado
+            user_id = cursor.lastrowid
 
+            # 3. Crea la cuenta bancaria automáticamente
+            import random
+            number = f"{random.randint(1000,9999)}-{random.randint(1000,9999)}-{random.randint(1000,9999)}"
+            sql_account = "INSERT INTO account (number, creation_date, id_user) VALUES (%s, NOW(), %s)"
+            cursor.execute(sql_account, (number, user_id))
+
+            connection.commit()
             cursor.close()
             connection.close()
             return True
         except Exception as ex:
-            print(f"Error saving user:{ex}")
+            print(f"Error saving user: {ex}")
             return False
 
     @staticmethod    
@@ -68,7 +72,7 @@ class User (UserMixin):
             cursor = connection.cursor(pymysql.cursors.DictCursor)
             
 
-            sql = "SELECT id, name, email, password FROM user WHERE email = %s"
+            sql = "SELECT id, name, email, password, profile, is_active FROM user WHERE email = %s"
             cursor.execute(sql, (email,))
 
             user = cursor.fetchone()
@@ -77,11 +81,15 @@ class User (UserMixin):
             connection.close()
 
             if user and check_password_hash(user["password"], password):
+                permissions = Permissions.get_permissions_by_user_id(user["id"])
                 return User(
                     user["id"],
                     user["name"],
                     user["email"],
-                    ""
+                    user["password"],
+                    user["profile"],
+                    user["is_active"],
+                    permissions
                 )
 
             return None
@@ -104,14 +112,20 @@ class User (UserMixin):
                 connection.close()
 
                 if user:
+                    permissions = Permissions.get_permissions_by_user_id(user["id"])
                     return User(
                         user["id"],
                         user["name"],
                         user["email"],
-                        user["password"]
-                    )
+                        user["password"],
+                        user["profile"],
+                        permissions,
+                        user["is_active"],
+                    )   
 
                 return None
             except Exception as ex:
                 print(f"Error login user:{ex}")
                 return False
+            
+            

@@ -105,41 +105,189 @@
             <div class="main-content">
 
                 <div class="page-content">
+                    
                     <div class="container-fluid">
 
+                        <!-- Título de página -->
                         <div class="row">
                             <div class="col-12">
                                 <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                                    <h4 class="mb-sm-0 font-size-18">Página en blanco</h4>
-
+                                    <h4 class="mb-sm-0 font-size-18">MOVIMIENTOS DE CUENTA</h4>
                                     <div class="page-title-right">
                                         <ol class="breadcrumb m-0">
                                             <li class="breadcrumb-item"><a href="javascript: void(0);">Inicio</a></li>
-                                            <li class="breadcrumb-item active">Página en blanco</li>
+                                            <li class="breadcrumb-item active">Movimientos de cuenta</li>
                                         </ol>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Botón nuevo movimiento -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTransactionModal">
+                                    <i class="bx bx-plus me-1"></i> Nuevo movimiento
+                                </button>
+                            </div>
+                        </div>
+
+                        {% if account %}
+                        <div class="row">
+                            <!-- Columna izquierda: Tarjeta de bienvenida -->
+                            <div class="col-xl-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="bg-primary p-3 rounded mb-3">
+                                            <h5 class="text-white mb-1">Bienvenido</h5>
+                                            <p class="text-white-50 mb-0">Panel principal</p>
+                                        </div>
+                                        <div class="text-center mb-3">
+                                            <img src="{{ url_for('static', filename='images/users/default.png') }}" alt="Avatar" class="rounded-circle" width="80" height="80">
+                                        </div>
+                                        <h5 class="text-center mb-1">{{ account.user.name }}</h5>
+                                        <p class="text-muted text-center mb-4">Cuenta {{ account.number }}</p>
+
+                                        <hr>
+
+                                        <h6 class="mb-2">Balance actual</h6>
+                                        {% set ns = namespace(balance=0) %}
+                                        {% for t in account.transactions %}
+                                            {% if t.transaction_type.name == 'INCOME' %}
+                                                {% set ns.balance = ns.balance + t.amount %}
+                                            {% else %}
+                                                {% set ns.balance = ns.balance - t.amount %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        <h3 class="mb-1">${{ "{:,.2f}".format(ns.balance) }}</h3>
+                                        <p class="text-success mb-0">MXN <i class="mdi mdi-arrow-up"></i></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Columna derecha: Tabla de últimos movimientos -->
+                            <div class="col-xl-8">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h4 class="card-title mb-4">Últimos movimientos</h4>
+                                        <div class="table-responsive">
+                                            <table class="table table-hover mb-0">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Fecha</th>
+                                                        <th>Descripción</th>
+                                                        <th>Monto</th>
+                                                        <th>Tipo</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for t in account.transactions %}
+                                                    <tr>
+                                                        <td>{{ t.date }}</td>
+                                                        <td>{{ t.description }}</td>
+                                                        <td>${{ "{:,.2f}".format(t.amount) }}</td>
+                                                        <td>
+                                                            {% if t.transaction_type.name == 'INCOME' %}
+                                                                <span class="badge bg-success">Ingreso</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">Egreso</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                    {% if account.transactions | length == 0 %}
+                                                    <tr>
+                                                        <td colspan="4" class="text-center text-muted">No hay movimientos registrados.</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-warning" role="alert">
+                                    No se encontró una cuenta asociada a este usuario.
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                     </div>  
                 </div>
  
-                <div class="modal fade transaction-detailModal" tabindex="-1" role="dialog" aria-labelledby="transaction-detailModalLabel" aria-hidden="true">
+                <div class="modal fade" id="newTransactionModal" tabindex="-1" role="dialog" aria-labelledby="newTransactionModalLabel" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered" role="document">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title" id="transaction-detailModalLabel">Título de modal</h5>
+                                <h5 class="modal-title" id="newTransactionModalLabel">Nuevo movimiento</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                 
+                                <div id="transaction-alert" class="alert d-none"></div>
+                                <div class="mb-3">
+                                    <label class="form-label">Descripción</label>
+                                    <input type="text" id="t-description" class="form-control" placeholder="Ej. Pago de renta">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Monto ($)</label>
+                                    <input type="number" id="t-amount" class="form-control" placeholder="0.00" min="0.01" step="0.01">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Tipo</label>
+                                    <select id="t-type" class="form-select">
+                                        <option value="INCOME">Ingreso</option>
+                                        <option value="EXPENSE">Egreso</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary" id="btn-save-transaction">Guardar</button>
                             </div>
                         </div>
                     </div>
-                </div> 
+                </div>
+
+                <script>
+                    document.getElementById("btn-save-transaction").addEventListener("click", function () {
+                        const description = document.getElementById("t-description").value.trim();
+                        const amount = document.getElementById("t-amount").value.trim();
+                        const transaction_type = document.getElementById("t-type").value;
+                        const alertBox = document.getElementById("transaction-alert");
+
+                        if (!description || !amount) {
+                            alertBox.className = "alert alert-warning";
+                            alertBox.textContent = "Por favor completa todos los campos.";
+                            return;
+                        }
+
+                        fetch("/api/transactions", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ description, amount: parseFloat(amount), transaction_type })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                alertBox.className = "alert alert-success";
+                                alertBox.textContent = data.message;
+                                setTimeout(() => { window.location.reload(); }, 1000);
+                            } else {
+                                alertBox.className = "alert alert-danger";
+                                alertBox.textContent = data.message;
+                            }
+                        })
+                        .catch(() => {
+                            alertBox.className = "alert alert-danger";
+                            alertBox.textContent = "Error de conexión. Intenta de nuevo.";
+                        });
+                    });
+                </script> 
                 
                 <footer class="footer">
                     <div class="container-fluid">
