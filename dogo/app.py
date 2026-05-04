@@ -1,13 +1,14 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, abort
+from entities.permission import Permissions
 from entities.user import User
-from flask_login import LoginManager, login_user, login_required, logout_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from dotenv import load_dotenv
 from entities.account import Account
 from entities.transactions import Transaction
-from flask_login import current_user
-import os
 from entities.log import log
 from enums.log_type import LogType
+from enums.value_permissions import ValuePermissions
+import os
 
 load_dotenv()
 
@@ -39,7 +40,6 @@ def welcome():
 @app.route('/api/users', methods=["POST"])
 def create_user():
     data = request.get_json()
-
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
@@ -55,20 +55,22 @@ def create_user():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-
     email = data.get("email")
     password = data.get("password")
 
     user = User.check_login(email, password)
+
     if user:
+    
+        if user.is_active:
+            return jsonify({
+                "success": True,
+                "message": "Inicio de sesión exitoso."
+            }), 200
 
         login_user(user)
         log.save_log(user, "Inicio de sesión exitoso", LogType.LOGIN)
-        
-        return jsonify({
-            "success": True,
-            "message": "Sesión iniciada correctamente"
-        }), 200
+        return jsonify({"success": True, "message": "Sesión iniciada correctamente"}), 200
     else:
         return jsonify({
             "success": False,
@@ -79,7 +81,6 @@ def login():
 @login_required
 def create_transaction():
     data = request.get_json()
-
     description = data.get("description")
     amount = data.get("amount")
     transaction_type = data.get("transaction_type")
@@ -98,6 +99,56 @@ def create_transaction():
         return jsonify({"success": True, "message": "Movimiento registrado correctamente."}), 201
     else:
         return jsonify({"success": False, "message": "Ocurrió un error al registrar el movimiento."}), 500
+
+#Administradores
+
+@app.route('/usuarios')
+@login_required
+def usuarios():
+    if not current_user.is_admin():
+        abort(403)
+    users = User.get_all()
+    all_permissions = [p.name for p in ValuePermissions]
+    return render_template('usuarios.html', users=users, all_permissions=all_permissions)
+
+@app.route('/api/usuarios/<int:user_id>/permisos', methods=['POST'])
+@login_required
+def agregar_permiso(user_id):
+    if not current_user.is_admin():
+        return jsonify({"success": False, "message": "Acceso denegado."}), 403
+
+    data = request.get_json()
+    permission_value = data.get("permission")
+
+    if not permission_value or permission_value not in [p.name for p in ValuePermissions]:
+        return jsonify({"success": False, "message": "Permiso inválido."}), 400
+
+    if User.add_permission(user_id, permission_value):
+        return jsonify({"success": True, "message": "Permiso agregado correctamente."}), 201
+    else:
+        return jsonify({"success": False, "message": "El permiso ya existe o hubo un error."}), 409
+
+@app.route('/api/usuarios/<int:user_id>/permisos', methods=['DELETE'])
+@login_required
+def eliminar_permiso(user_id):
+    if not current_user.is_admin():
+        return jsonify({"success": False, "message": "Acceso denegado."}), 403
+
+    data = request.get_json()
+    permission_value = data.get("permission")
+
+    if User.remove_permission(user_id, permission_value):
+        return jsonify({"success": True, "message": "Permiso eliminado."}), 200
+    else:
+        return jsonify({"success": False, "message": "Error al eliminar permiso."}), 500
+    
+@app.route('/api/usuarios/<int:user_id>/permisos-lista', methods=['GET'])
+@login_required
+def listar_permisos(user_id):
+    if not current_user.is_admin():
+        return jsonify({"success": False, "message": "Acceso denegado."}), 403
+    perms = Permissions.get_permissions_by_user_id(user_id)
+    return jsonify({"permissions": [p.value.name for p in perms]})
 
 @app.route("/logout")
 @login_required

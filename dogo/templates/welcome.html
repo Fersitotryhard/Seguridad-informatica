@@ -72,6 +72,17 @@
                                     <i class="bx bx-home-circle"></i>
                                     <span key="t-dashboards">Inicio</span>
                                 </a>
+                            </li>
+                            {% if current_user.is_admin %}
+                            <li class="menu-title">Administración</li>
+                            <li>
+                                <a href = "{{ url_for('usuarios') }}" class="waves-effect">
+                                    <i class="bx bx-shield-quarter"></i>
+                                    <span>usuarios</span>
+                                </a>
+                            </li>
+                            {% endif %}
+
                                 <ul class="sub-menu" aria-expanded="false">
                                     <li><a href="#" key="t-default">Opción 1</a></li>
                                     <li><a href="#" key="t-saas">Opción 2</a></li>
